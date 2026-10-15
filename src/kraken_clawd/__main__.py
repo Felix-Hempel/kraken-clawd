@@ -19,6 +19,7 @@ log = logging.getLogger("kraken_clawd")
 def main() -> int:
     logging.basicConfig(level=os.environ.get("CLAWD_LOG", "INFO"),
                         format="%(levelname)s %(name)s: %(message)s")
+    logging.getLogger("liquidctl").setLevel(max(logging.INFO, logging.getLogger("liquidctl").getEffectiveLevel()))
     store, lock, stop = Store(created=time.time()), threading.Lock(), threading.Event()
     try:
         server = HookServer(store, lock, port=int(os.environ.get("CLAWD_PORT", "7377")))

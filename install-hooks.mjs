@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 const URL = "http://127.0.0.1:7377/hook";
 const EVENTS = [
-  "SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse",
+  "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse",
   "PostToolUseFailure", "PermissionRequest", "Notification", "Stop", "StopFailure",
   "SubagentStart", "SubagentStop",
 ];
@@ -22,11 +22,15 @@ settings.hooks ??= {};
 
 const ours = (group) => (group.hooks ?? []).some((h) => h.type === "http" && h.url === URL);
 
-for (const ev of EVENTS) {
+for (const ev of Object.keys(settings.hooks)) {
   const groups = (settings.hooks[ev] ?? []).filter((g) => !ours(g));
-  if (!remove) groups.push({ hooks: [{ type: "http", url: URL, timeout: 1 }] });
   if (groups.length) settings.hooks[ev] = groups;
   else delete settings.hooks[ev];
+}
+if (!remove) {
+  for (const ev of EVENTS) {
+    settings.hooks[ev] = [...(settings.hooks[ev] ?? []), { hooks: [{ type: "http", url: URL, timeout: 1 }] }];
+  }
 }
 if (!Object.keys(settings.hooks).length) delete settings.hooks;
 

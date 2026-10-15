@@ -5,7 +5,7 @@ After=rgb-aurora.service
 [Service]
 ExecStart=%h/Documents/IT/kraken-clawd/.venv/bin/python -m kraken_clawd
 ExecStopPost=%h/.config/rgb-aurora/kraken.sh
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 [Install]
