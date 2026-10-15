@@ -17,7 +17,7 @@ const i = args.indexOf("--settings");
 const path = i >= 0 ? args[i + 1] : join(homedir(), ".claude", "settings.json");
 
 const settings = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
-if (existsSync(path)) copyFileSync(path, `${path}.bak-kraken-clawd`);
+if (existsSync(path) && !existsSync(`${path}.bak-kraken-clawd`)) copyFileSync(path, `${path}.bak-kraken-clawd`);
 settings.hooks ??= {};
 
 const ours = (group) => (group.hooks ?? []).some((h) => h.type === "http" && h.url === URL);

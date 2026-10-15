@@ -4,6 +4,8 @@ Die Claude-Code-Figur in Lila auf dem LCD der NZXT Kraken 2023. Reagiert über C
 
 - Spec: `docs/superpowers/specs/2026-10-15-kraken-clawd-design.md`
 - Daemon: `systemctl --user {status,restart,stop} kraken-clawd` (Stop → Eclipse-Bild über `~/.config/rgb-aurora/kraken.sh`)
+- Unit installieren: `ln -sf ~/Documents/IT/kraken-clawd/systemd/kraken-clawd.service ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now kraken-clawd`
+- Hinweis: `rgb-aurora.service` schreibt das Eclipse-Bild bei seinem Start/Restart; der Daemon überschreibt es mit dem nächsten Frame.
 - Hooks: `node install-hooks.mjs` / `node install-hooks.mjs --remove` (Backup: `~/.claude/settings.json.bak-kraken-clawd`)
 - Vorschau ohne LCD: `uv run python -m kraken_clawd.preview`
 - Eine Animation am LCD testen: `uv run python -m kraken_clawd.try_lcd <name> <sekunden>` (Daemon vorher stoppen)

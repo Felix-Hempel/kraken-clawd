@@ -1,6 +1,6 @@
 [Unit]
 Description=Claude-Code-Figur auf dem Kraken-LCD
-After=default.target
+After=rgb-aurora.service
 
 [Service]
 ExecStart=%h/Documents/IT/kraken-clawd/.venv/bin/python -m kraken_clawd
