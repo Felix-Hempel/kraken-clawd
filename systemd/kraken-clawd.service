@@ -1,0 +1,12 @@
+[Unit]
+Description=Claude-Code-Figur auf dem Kraken-LCD
+After=default.target
+
+[Service]
+ExecStart=%h/Documents/IT/kraken-clawd/.venv/bin/python -m kraken_clawd
+ExecStopPost=%h/.config/rgb-aurora/kraken.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
