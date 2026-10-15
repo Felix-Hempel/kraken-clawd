@@ -42,6 +42,7 @@ def test_prompt_and_post_tool_mean_thinking(store):
     ev("Notification", notification_type="permission_prompt"),
     ev("Notification", notification_type="elicitation_dialog"),
     ev("Notification", notification_type="agent_needs_input"),
+    ev("Notification", notification_type="elicitation_url_dialog"),
 ])
 def test_waiting_triggers(store, payload):
     store.apply(payload, 1)
@@ -221,3 +222,63 @@ def test_state_since_kept_while_state_unchanged(store):
     store.apply(ev("PreToolUse", tool_name="Edit"), 1)
     store.apply(ev("PreToolUse", tool_name="Write"), 5)
     assert store.view(5).main.since == 1
+
+
+def test_stop_keeps_background_subagents(store):
+    store.apply(ev("UserPromptSubmit"), 1)
+    store.apply(ev("SubagentStart", agent_id="x"), 2)
+    store.apply(ev("SubagentStart", agent_id="y"), 2)
+    store.apply(ev("Stop", background_tasks=[{"type": "subagent"}]), 3)
+    assert store.view(3).main.subagents == 2
+    assert main_state(store, 3) == "done"
+    assert main_state(store, 6) == "conducting"
+    store.apply(ev("SubagentStop", agent_id="x"), 7)
+    assert main_state(store, 7) == "conducting"
+    store.apply(ev("SubagentStop", agent_id="y"), 8)
+    assert main_state(store, 8) == "idle"
+
+
+@pytest.mark.parametrize("tasks", [None, "kaputt", [], [{"type": "shell"}], ["x"]])
+def test_stop_without_background_subagents_clears(store, tasks):
+    store.apply(ev("SubagentStart", agent_id="x"), 1)
+    kw = {} if tasks is None else {"background_tasks": tasks}
+    store.apply(ev("Stop", **kw), 2)
+    assert store.view(2).main.subagents == 0
+
+
+def test_conducting_idle_session_outranks_idle_others(store):
+    store.apply(ev("SubagentStart", "a", agent_id="x"), 0)
+    store.apply(ev("Stop", "a", background_tasks=[{"type": "subagent"}]), 1)
+    store.apply(ev("Stop", "b"), 5)
+    v = store.view(10)
+    assert v.main.state == "conducting"
+    assert [o.state for o in v.others] == ["idle"]
+
+
+def test_subagent_hook_releases_waiting(store):
+    store.apply(ev("PermissionRequest", agent_id="x"), 1)
+    assert main_state(store, 1) == "waiting"
+    store.apply(ev("PreToolUse", tool_name="Read", agent_id="x"), 2)
+    assert main_state(store, 2) == "conducting"
+
+
+def test_stop_failure_other_returns_to_idle(store):
+    store.apply(ev("PreToolUse", tool_name="Edit"), 1)
+    store.apply(ev("StopFailure", error="server_error"), 2)
+    assert main_state(store, 2) == "error"
+    assert main_state(store, 3.6) == "idle"
+
+
+@pytest.mark.parametrize("err", ["rate_limit", "billing_error", "account_on_hold"])
+def test_limit_errors(store, err):
+    store.apply(ev("UserPromptSubmit"), 1)
+    store.apply(ev("StopFailure", error=err), 2)
+    assert main_state(store, 2) == "limit"
+
+
+def test_no_confetti_after_limit(store):
+    store.apply(ev("UserPromptSubmit"), 0)
+    store.apply(ev("StopFailure", error="rate_limit"), 10)
+    store.apply(ev("UserPromptSubmit"), 4000)
+    store.apply(ev("Stop"), 4010)
+    assert main_state(store, 4010) == "done"

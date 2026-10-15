@@ -8,8 +8,10 @@ TOOL_STATES = {
     "Read": "reading", "Grep": "reading", "Glob": "reading", "WebFetch": "reading", "WebSearch": "reading",
     "Bash": "bash", "Agent": "conducting", "Task": "conducting",
 }
-WAIT_TYPES = {"permission_prompt", "elicitation_dialog", "agent_needs_input"}
+WAIT_TYPES = {"permission_prompt", "elicitation_dialog", "agent_needs_input",
+              "elicitation_url_dialog"}
 WORKING = ("thinking", "typing", "reading", "bash", "conducting", "working")
+LIMIT_ERRORS = {"rate_limit", "billing_error", "account_on_hold"}
 PRIORITY = {"limit": 0, "waiting": 1, "error": 2, **{s: 3 for s in WORKING},
             "celebrate": 4, "done": 4, "idle": 5}
 
@@ -48,7 +50,8 @@ class _Session:
     subagents: set[str] = field(default_factory=set)
 
     def view(self) -> SessionView:
-        return SessionView(self.state, len(self.subagents), self.since)
+        state = "conducting" if self.state == "idle" and self.subagents else self.state
+        return SessionView(state, len(self.subagents), self.since)
 
 
 def _map(name: str, ev: dict) -> str | None:
@@ -69,8 +72,14 @@ def _map(name: str, ev: dict) -> str | None:
         case "Stop":
             return None if ev.get("stop_hook_active") else "done"
         case "StopFailure":
-            return "limit" if ev.get("error") == "rate_limit" else "error"
+            return "limit" if ev.get("error") in LIMIT_ERRORS else "error"
     return None
+
+
+def _has_background_subagent(ev: dict) -> bool:
+    tasks = ev.get("background_tasks")
+    return isinstance(tasks, list) and any(
+        isinstance(t, dict) and t.get("type") == "subagent" for t in tasks)
 
 
 class Store:
@@ -102,19 +111,26 @@ class Store:
             return
 
         new = _map(name, ev)
-        if new is None or (agent and new != "waiting"):
+        if new is None:
+            return
+        if agent and new != "waiting":
+            if s.state == "waiting":
+                self._set(s, "conducting", now)
             return
         if s.state == "limit" and name != "UserPromptSubmit":
             return
         if name == "UserPromptSubmit" and s.work_start is None:
             s.work_start = now
         if new == "error" and s.state != "error":
-            s.prev = s.state
+            s.prev = "idle" if name == "StopFailure" else s.state
+        if new == "limit":
+            s.work_start = None
         if new == "done":
             if s.work_start is not None and now - s.work_start > CELEBRATE_AFTER:
                 new = "celebrate"
             s.work_start = None
-            s.subagents.clear()
+            if not _has_background_subagent(ev):
+                s.subagents.clear()
         self._set(s, new, now)
 
     @staticmethod
@@ -142,7 +158,7 @@ class Store:
         dimmed = sleeping and now - self._quiet_since >= DIM_AFTER
         if sleeping:
             return View(None, (), True, dimmed)
-        ranked = sorted(sessions, key=lambda s: (PRIORITY[s.state], -s.last))
-        others = tuple(s.view() for s in ranked[1:]
-                       if not (s.state == "idle" and now - s.since > OTHERS_IDLE_HIDE))
-        return View(ranked[0].view(), others, False, False)
+        views = sorted(((s.view(), s.last) for s in sessions), key=lambda v: (PRIORITY[v[0].state], -v[1]))
+        others = tuple(v for v, _ in views[1:]
+                       if not (v.state == "idle" and now - v.since > OTHERS_IDLE_HIDE))
+        return View(views[0][0], others, False, False)
