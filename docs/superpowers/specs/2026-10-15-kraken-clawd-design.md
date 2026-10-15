@@ -18,7 +18,7 @@ Auf dem LCD der NZXT Kraken 2023 (240×240, felixlinux) läuft die echte Claude-
 
 - Kein Windows / NZXT CAM.
 - Kein Abo-Status pro Account vom Server-Gateway (es gibt dort keinen passenden Endpoint ohne Login). Limits werden lokal über `StopFailure` erkannt. Erst nachrüsten, wenn es fehlt.
-- Keine Weitergabe/Veröffentlichung (Clawd ist Anthropic-Branding; privater Nachbau).
+- Veröffentlichung nur als klar gekennzeichnetes inoffizielles Fan-Projekt (Clawd ist Anthropic-Branding; Code MIT, Figur nicht).
 
 ## Rahmenbedingungen (gemessen)
 
